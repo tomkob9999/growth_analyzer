@@ -49,8 +49,8 @@ class relation_finder:
     def exp_func(x, a, b, c):
         return (a+c*x) * np.exp(b * x)
     
-    def exp_func_safe(x, a, b, c):
-        return (a+c*x)+b-b
+    def poly_func(x, a, b, c):
+        return a + c*x + b*x**2
 
     def fit_exp(x_data, y_data, init_guess=[]):
         try:
@@ -59,9 +59,12 @@ class relation_finder:
             try:
                 return curve_fit(relation_finder.exp_func, x_data, y_data, method="dogbox", nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
             except RuntimeError as ee:
-                print("Exponential function could not be found.  Linearly regressed.  Ignore b")
-                return curve_fit(relation_finder.exp_func, x_data, y_data, method="dogbox", nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
+                return None, None
+
+    def fit_poly(x_data, y_data, init_guess=[]):
+        return curve_fit(relation_finder.poly_func, x_data, y_data, method="dogbox", nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
         
+
     def find_relations(data, colX, colY, cols=[], const_thresh=0.1, skip_inverse=True, use_lasso=False):
 
         if use_lasso:
@@ -106,7 +109,7 @@ class relation_finder:
             model = Lasso()
             X_train = [r[:-1]for r in data]
             Y_train = [r[-1]for r in data]
-            X_train, Y_train = relation_finder.remove_outliers(X_train, Y_train)
+            X_train, Y_train = growth_analyzer.remove_outliers(X_train, Y_train)
             model.fit(X_train, Y_train)
 
             print(f"Relation to {colY}")
@@ -127,6 +130,7 @@ class relation_finder:
                 plt.scatter(data=df, x=cols[i], y=colY)
                 plt.figure(figsize=(3, 2))
                 plt.show()
+
             return model.coef_.tolist() + [model.intercept_]
 
         else:
@@ -137,17 +141,26 @@ class relation_finder:
             X_train, Y_train = relation_finder.remove_outliers(X_train, Y_train)
 
             params, covariance = relation_finder.fit_exp(X_train, Y_train)
+            
+            poly_used = False
+            if params is None:
+                params, covariance = relation_finder.fit_poly(X_train, Y_train)
+                poly_used = True
+                
             a, b, c = params
             predictions = [(a + c * x) * np.e**(b*x) for x in X_train]
             r2 = r2_score(Y_train, predictions)
             if np.abs(b) < const_thresh and np.abs(c) < const_thresh :
                 print(f"{colY} is CONSTANT to {colX} with constant value of {a:.5f} with confidence level (R2) of {r2*100:.2f}%")
             else:
-                if c > 0 and b > 0.10:
+                if c > 0 and not poly_used and b > 0.10:
                     print("   *.   *.   *")
                     print(f"EXPONENTIAL GROWH DETECTED {b:.3f}")
                     print("   *.   *.   *")
-                equation = f"y = ({a}+{c}*x) * e**({b}*x)"
+                if poly_used:
+                    equation = f"y = {a} + {c}*x + {b}*x**2)"
+                else:
+                    equation = f"y = ({a}+{c}*x) * e**({b}*x)"
                 print(f"equation:", equation)
                 pdata = [[row[0], row[-1]] for row in data]
                 df = pd.DataFrame(pdata, columns=[colX, colY])
@@ -155,14 +168,12 @@ class relation_finder:
                 plt.scatter(data=df, x=colX, y=colY)
                 # Generate x values for the line
                 x_line = np.linspace(min(X_train), max(X_train), 1000)  # 100 points from min to max of scatter data
-                # Calculate y values based on the equation of the line
-                y_line = [relation_finder.exp_func(x, a, b, c) for x in x_line]
+                y_line = [relation_finder.exp_func(x, a, b, c) if not poly_used else relation_finder.poly_func(x, a, b, c) for x in x_line]
                 # Plot the line
                 plt.plot(x_line, y_line, color='red', label='Line: ' + equation)
                 plt.figure(figsize=(3, 2))
                 plt.show()
                 return [a, b]
-
     
 class growth_analyzer:
 
