@@ -168,14 +168,18 @@ class relation_finder:
                 print(f"{colY} is CONSTANT to {colX} with constant value of {a:.5f} with confidence level (R2) of {r2*100:.2f}%")
             else:
                 if c > 0 and not poly_used and b > 0.10:
-                    print("   *.   *.   *")
-                    print(f"EXPONENTIAL GROWH DETECTED {b:.3f}")
-                    print("   *.   *.   *")
+                    print("   *   *   *   *   *")
+                    print(f"EXPONENTIAL GROWH DETECTED {b:.5f}")
+                    print("   *   *   *   *   *")
                 if poly_used:
-                    equation = f"y = {a} + {c}*x + {b}*x**2)"
+                    equation = f"y = {a:.5f} + {c:.5f}*x + {b:.5f}*x**2)"
+                    print(f"Equation:", equation)
                 else:
-                    equation = f"y = ({a}+{c}*x) * e**({b}*x)"
-                print(f"Equation:", equation)
+                    print(f"Intercept: {a:.5f}")
+                    print(f"Slope (original scale): {c/div:.5f}")
+                    print(f"Exponential Factor: {b:.5f}")
+                    equation = f"y = ({a:.5f}+{c:.5f}*x) * e**({b:.5f}*x)"
+                    print(f"Equation (slope scaled by {div}):", equation)
 #                 pdata = [[row[0], row[-1]] for row in data]
                 pdata = [[x, Y_train[i]] for i, x in enumerate(X_train)]
 #                 print("pdata", pdata)
@@ -209,4 +213,3 @@ class growth_analyzer:
                 ret = relation_finder.find_relations(pdata, c, "Timeline", const_thresh=0.1, skip_inverse=True, use_lasso=use_lasso)
                 res.append(ret)
             return res
-    
