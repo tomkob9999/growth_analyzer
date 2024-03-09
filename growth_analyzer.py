@@ -106,7 +106,7 @@ class relation_finder:
             model = Lasso()
             X_train = [r[:-1]for r in data]
             Y_train = [r[-1]for r in data]
-            X_train, Y_train = growth_analyzer.remove_outliers(X_train, Y_train)
+            X_train, Y_train = relation_finder.remove_outliers(X_train, Y_train)
             model.fit(X_train, Y_train)
 
             print(f"Relation to {colY}")
@@ -172,13 +172,13 @@ class growth_analyzer:
         if use_lasso:
             data = [d[1:] + [d[0]] for d in data]
             print("data", data)
-            res = relation_finder.find_relations(data, "", "Timeline", cols=xcols, const_thresh=0.1, skip_inverse=False, use_lasso=True)
+            res = relation_finder.find_relations(data, "", "Timeline", cols=xcols, const_thresh=0.1, skip_inverse=False, use_lasso=use_lasso)
             return res
         else:
             res = []
             for i, c in enumerate(xcols):
                 pdata = [[row[0], row[i+1]] for row in data]
-                ret = relation_finder.find_relations(pdata, c, "Timeline", const_thresh=0.1, skip_inverse=True, use_lasso=False)
+                ret = relation_finder.find_relations(pdata, c, "Timeline", const_thresh=0.1, skip_inverse=True, use_lasso=use_lasso)
                 res.append(ret)
             return res
     
