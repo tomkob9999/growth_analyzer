@@ -55,14 +55,17 @@ class relation_finder:
     def fit_exp(x_data, y_data, init_guess=[]):
         try:
             return curve_fit(relation_finder.exp_func, x_data, y_data, method="dogbox", nan_policy="omit")
+#             return curve_fit(relation_finder.exp_func, x_data, y_data, nan_policy="omit")
         except RuntimeError as e:
             try:
                 return curve_fit(relation_finder.exp_func, x_data, y_data, method="dogbox", nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
+#                 return curve_fit(relation_finder.exp_func, x_data, y_data, nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
             except RuntimeError as ee:
                 return None, None
 
     def fit_poly(x_data, y_data, init_guess=[]):
         return curve_fit(relation_finder.poly_func, x_data, y_data, method="dogbox", nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
+#         return curve_fit(relation_finder.poly_func, x_data, y_data, nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
         
 
     def find_relations(data, colX, colY, cols=[], const_thresh=0.1, skip_inverse=True, use_lasso=False):
@@ -139,7 +142,13 @@ class relation_finder:
             X_train = [r[0]for r in data]
             Y_train = [r[-1]for r in data]
             X_train, Y_train = relation_finder.remove_outliers(X_train, Y_train)
-
+#             print("X_train", X_train)
+#             print("Y_train", Y_train)
+            X_train_org = X_train
+            # reduced to less than 10 so that exponential can be used in regression
+            div = 10**int(np.log10(max(X_train)))
+            X_train = [r/div for r in X_train]
+#             print("Y_train", Y_train)
             params, covariance = relation_finder.fit_exp(X_train, Y_train)
             
             poly_used = False
@@ -148,7 +157,12 @@ class relation_finder:
                 poly_used = True
                 
             a, b, c = params
-            predictions = [(a + c * x) * np.e**(b*x) for x in X_train]
+#             print("a", a, "b", b, "c", c)
+            if poly_used:
+                predictions = [relation_finder.poly_func(x, a, b, c) for x in X_train]
+            else:
+#                 predictions = [(a + c * x) * np.e**(b*x) for x in X_train]
+                predictions = [relation_finder.exp_func(x, a, b, c) for x in X_train]
             r2 = r2_score(Y_train, predictions)
             if np.abs(b) < const_thresh and np.abs(c) < const_thresh :
                 print(f"{colY} is CONSTANT to {colX} with constant value of {a:.5f} with confidence level (R2) of {r2*100:.2f}%")
@@ -161,11 +175,14 @@ class relation_finder:
                     equation = f"y = {a} + {c}*x + {b}*x**2)"
                 else:
                     equation = f"y = ({a}+{c}*x) * e**({b}*x)"
-                print(f"equation:", equation)
-                pdata = [[row[0], row[-1]] for row in data]
+                print(f"Equation:", equation)
+#                 pdata = [[row[0], row[-1]] for row in data]
+                pdata = [[x, Y_train[i]] for i, x in enumerate(X_train)]
+#                 print("pdata", pdata)
                 df = pd.DataFrame(pdata, columns=[colX, colY])
                 plt.title("Scatter Plot of " + colX + " and " + colY)
                 plt.scatter(data=df, x=colX, y=colY)
+#                 print("df", df)
                 # Generate x values for the line
                 x_line = np.linspace(min(X_train), max(X_train), 1000)  # 100 points from min to max of scatter data
                 y_line = [relation_finder.exp_func(x, a, b, c) if not poly_used else relation_finder.poly_func(x, a, b, c) for x in x_line]
