@@ -1,7 +1,7 @@
- Growth Analyzer
+# Growth Analyzer
 
 # Author: Tomio Kobayashi
-# Version 1.0.5
+# Version 1.0.6
 # Updated: 2024/03/09
 
 import numpy as np
@@ -22,6 +22,12 @@ from scipy.optimize import curve_fit
     
 class relation_finder:
     
+    def find_jumps(data):
+        gaps = [np.abs(data[i] - data[i-1]) for i in range(1, len(data), 1)]
+        avg = np.mean(gaps)
+        print(avg)
+        return [i for i in range(1, len(data), 1) if np.abs(data[i] - data[i-1]) > avg*3]
+
     def remove_outliers(x, y):
         # Convert lists to numpy arrays if necessary
         x = np.array(x)
@@ -55,17 +61,14 @@ class relation_finder:
     def fit_exp(x_data, y_data, init_guess=[]):
         try:
             return curve_fit(relation_finder.exp_func, x_data, y_data, method="dogbox", nan_policy="omit")
-#             return curve_fit(relation_finder.exp_func, x_data, y_data, nan_policy="omit")
         except RuntimeError as e:
             try:
                 return curve_fit(relation_finder.exp_func, x_data, y_data, method="dogbox", nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
-#                 return curve_fit(relation_finder.exp_func, x_data, y_data, nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
             except RuntimeError as ee:
                 return None, None
 
     def fit_poly(x_data, y_data, init_guess=[]):
         return curve_fit(relation_finder.poly_func, x_data, y_data, method="dogbox", nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
-#         return curve_fit(relation_finder.poly_func, x_data, y_data, nan_policy="omit", p0=[min(y_data), 0, (max(y_data)-min(y_data))/len(y_data)])
         
 
     def find_relations(data, colX, colY, cols=[], const_thresh=0.1, skip_inverse=True, use_lasso=False):
@@ -74,8 +77,8 @@ class relation_finder:
             dic_relation = {
                 0: ("P", "Proportional Linearly (Y=a*X)"),
                 1: ("IP", "Inversely Proportional Linearly (Y=a*(1/X))"),
-                2: ("QP", "Proportional Quadruply (Y=a*(X^2))"),
-                3: ("IQP", "Inversely Proportional Quadruply (Y=a*(1/X^2))"),
+                2: ("QP", "Proportional by Square (Y=a*(X^2))"),
+                3: ("IQP", "Inversely Proportional by Square (Y=a*(1/X^2))"),
                 4: ("SP", "Proportional by Square Root (Y=a*sqrt(X)"),
                 5: ("ISP", "Inversely Proportional by Square Root (Y=a*(1/sqrt(X))"),
             }
@@ -84,7 +87,7 @@ class relation_finder:
             if skip_inverse:
                 dic_relation = {
                     0: ("P", "Proportional Linearly (Y=a*X)"),
-                    1: ("QP", "Proportional Quadruply (Y=a*(X^2))"),
+                    1: ("QP", "Proportional by Square (Y=a*(X^2))"),
                     2: ("SP", "Proportional by Square Root (Y=a*sqrt(X)"),
                 }
                 num_incs = 3
@@ -141,14 +144,18 @@ class relation_finder:
         # Fit a polynomial of the specified degree to the data
             X_train = [r[0]for r in data]
             Y_train = [r[-1]for r in data]
-            X_train, Y_train = relation_finder.remove_outliers(X_train, Y_train)
 #             print("X_train", X_train)
 #             print("Y_train", Y_train)
+            
+            jumps = relation_finder.find_jumps(Y_train)
+            for jum in jumps:
+                print("Jump found X(original scale)=", X_train[jum], ", Y=", Y_train[jum])
+            
+            X_train, Y_train = relation_finder.remove_outliers(X_train, Y_train)
             X_train_org = X_train
             # reduced to less than 10 so that exponential can be used in regression
             div = 10**int(np.log10(max(X_train)))
             X_train = [r/div for r in X_train]
-#             print("Y_train", Y_train)
             params, covariance = relation_finder.fit_exp(X_train, Y_train)
             
             poly_used = False
@@ -157,11 +164,9 @@ class relation_finder:
                 poly_used = True
                 
             a, b, c = params
-#             print("a", a, "b", b, "c", c)
             if poly_used:
                 predictions = [relation_finder.poly_func(x, a, b, c) for x in X_train]
             else:
-#                 predictions = [(a + c * x) * np.e**(b*x) for x in X_train]
                 predictions = [relation_finder.exp_func(x, a, b, c) for x in X_train]
             r2 = r2_score(Y_train, predictions)
             if np.abs(b) < const_thresh and np.abs(c) < const_thresh :
@@ -180,13 +185,11 @@ class relation_finder:
                     print(f"Exponential Factor: {b:.5f}")
                     equation = f"y = ({a:.5f}+{c:.5f}*(x/{div}))) * e**({b:.5f}*(x/{div}))"
                     print(f"Equation (x de-scaled by {div}):", equation)
-#                 pdata = [[row[0], row[-1]] for row in data]
+                    print("  R2:", round(r2, 5))
                 pdata = [[x, Y_train[i]] for i, x in enumerate(X_train)]
-#                 print("pdata", pdata)
                 df = pd.DataFrame(pdata, columns=[colX, colY])
                 plt.title("Scatter Plot of " + colX + " and " + colY)
                 plt.scatter(data=df, x=colX, y=colY)
-#                 print("df", df)
                 # Generate x values for the line
                 x_line = np.linspace(min(X_train), max(X_train), 1000)  # 100 points from min to max of scatter data
                 y_line = [relation_finder.exp_func(x, a, b, c) if not poly_used else relation_finder.poly_func(x, a, b, c) for x in x_line]
