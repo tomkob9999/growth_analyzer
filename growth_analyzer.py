@@ -16,19 +16,19 @@ from scipy.optimize import curve_fit
     
 class growth_analyzer:
 
-    def analyzer(data, xcols, use_lasso=False):
+    def analyzer(data, xcols, use_lasso=False, use_gaussian=False):
     #     col 0: Timeline
     #     col 1-: Variables
         if use_lasso:
             data = [d[1:] + [d[0]] for d in data]
             print("data", data)
-            res = relation_finder.find_relations(data, "", "Timeline", cols=xcols, const_thresh=0.1, skip_inverse=False, use_lasso=use_lasso)
+            res = relation_finder.find_relations(data, "", "Timeline", cols=xcols, const_thresh=0.1, skip_inverse=False, use_lasso=use_lasso, use_gaussian=use_gaussian)
             return res
         else:
             res = []
             for i, c in enumerate(xcols):
                 pdata = [[row[0], row[i+1]] for row in data]
-                ret = relation_finder.find_relations(pdata, c, "Timeline", const_thresh=0.1, skip_inverse=True, use_lasso=use_lasso)
+                ret = relation_finder.find_relations(pdata, c, "Timeline", const_thresh=0.1, skip_inverse=True, use_lasso=use_lasso, use_gaussian=use_gaussian)
                 res.append(ret)
             return res
     
