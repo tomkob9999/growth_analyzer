@@ -4,12 +4,6 @@
 # Version 1.0.7
 # Updated: 2024/03/10
 
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.linear_model import Lasso
-
 import requests
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -37,3 +31,4 @@ class growth_analyzer:
                 ret = relation_finder.find_relations(pdata, c, "Timeline", const_thresh=0.1, skip_inverse=True, use_lasso=use_lasso)
                 res.append(ret)
             return res
+    
